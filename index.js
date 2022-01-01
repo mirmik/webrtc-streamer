@@ -1,15 +1,23 @@
 'use strict';
 
+const fs = require('fs');
 const bodyParser = require('body-parser');
 const browserify = require('browserify-middleware');
 const express = require('express');
+const https = require('https');
 const { readdirSync, statSync } = require('fs');
 const { join } = require('path');
+
+const credentials = {
+    key: fs.readFileSync('key.pem'),
+    cert: fs.readFileSync('cert.pem')
+};
 
 const { mount } = require('./lib/server/rest/connectionsapi');
 const WebRtcConnectionManager = require('./lib/server/connections/webrtcconnectionmanager');
 
 const app = express();
+const httpsServer = https.createServer(credentials, app);
 
 app.use(bodyParser.json());
 
@@ -42,11 +50,11 @@ const connectionManagers = examples.reduce((connectionManagers, example) => {
   return connectionManagers.set(example, connectionManager);
 }, new Map());
 
-const server = app.listen(10009, () => {
-  const address = server.address();
-  console.log(`http://localhost:${address.port}\n`);
+httpsServer.listen(10009, () => {
+  const address = httpsServer.address();
+  console.log(`https://localhost:${address.port}\n`);
 
-  server.once('close', () => {
+  httpsServer.once('close', () => {
     connectionManagers.forEach(connectionManager => connectionManager.close());
   });
 });

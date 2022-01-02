@@ -1,5 +1,7 @@
 'use strict';
 
+var a = 0
+var appsrc = null
 const { PassThrough } = require('stream')
 const fs = require('fs')
 const gstreamer = require("gstreamer-superficial");
@@ -7,8 +9,30 @@ const gstreamer = require("gstreamer-superficial");
 const { RTCAudioSink, RTCVideoSink } = require('wrtc').nonstandard;
 
 let UID = 0;
-const pipeline = new gstreamer.Pipeline("videotestsrc is-live=true ! video/x-raw,format=UYVY ! ndisinkcombiner name=combiner ! ndisink ndi-name='My NDI source' audiotestsrc is-live=true ! combiner.audio");
-pipeline.play()
+var inited = false
+//const pipeline2 = new gstreamer.Pipeline("appsrc name=mysource is-live=true ! videoconvert ! autovideosink");
+
+function startStream(width, height) {
+  const pipeline = new gstreamer.Pipeline(
+    "appsrc name=mysource is-live=true ! " +
+    `video/x-raw,format=I420,width=${width},height=${height},framerate=1000/1 ! ` +
+    "rawvideoparse use-sink-caps=true !  " +
+    //`videoconvert ! videoscale ! ` +
+    //`video/x-raw,format=I420,width=${width*2},height=${height*2},framerate=1000/1 ! ` +
+    " videoconvert ! " +
+    "ndisinkcombiner name=combiner ! ndisink ndi-name='My NDI source' " 
+    //"autovideosink sync=false"
+    //+
+    //"audiotestsrc is-live=true ! audioconvert ! combiner.audio"
+  );
+
+  pipeline.pollBus(msg => {
+    console.log(msg);
+  });
+
+    appsrc = pipeline.findChild('mysource')
+    pipeline.play()
+  }
 
 function beforeOffer(peerConnection) {
   const audioTransceiver = peerConnection.addTransceiver('audio');
@@ -20,7 +44,14 @@ function beforeOffer(peerConnection) {
   const streams = [];
 
   videoSink.addEventListener('frame', ({ frame: { width, height, data }}) => {
-    const size = width + 'x' + height;
+    if (inited === false) 
+    {
+      console.log(`Frame size ${width}x${height}`);
+      inited = true;
+      startStream(width, height);
+    }
+
+    /*const size = width + 'x' + height;
     if (!streams[0] || (streams[0] && streams[0].size !== size)) {
       UID++;
 
@@ -54,8 +85,19 @@ function beforeOffer(peerConnection) {
           item.video.end();
         }
       })
-    }
+    }*/
 
+    //console.log(data)
+    //a+=1
+    //if (a==3) { startStream() }
+    //console.log(width, height, data)
+
+    //if (appsrc) {
+    
+    //console.log(data);
+    appsrc.push(Buffer.from(data))
+    //}
+    
     //streams[0].video.push(Buffer.from(data));
   });
 

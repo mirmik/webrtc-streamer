@@ -10,11 +10,18 @@ localVideo.muted = true;
 
 async function beforeAnswer(peerConnection) {
   const localStream = await window.navigator.mediaDevices.getUserMedia({
-    audio: true,
-    video: true
+    audio: false,
+    video: {
+      width: { min: 144*2, ideal: 144*2 },
+      height: { min: 176*2, ideal: 176*2 }
+      //aspectRatio: { ideal: 1.7777777778 }
+    },
   });
 
-  localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+  localStream.getTracks().forEach(track => {
+      peerConnection.addTrack(track, localStream)
+      console.log(track.getSettings());
+  });
 
   localVideo.srcObject = localStream;
 

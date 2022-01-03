@@ -1,7 +1,6 @@
 'use strict';
 
 const createExample = require('../../lib/browser/example');
-
 const description = 'Transcode and record audio and video into different video resolutions and then merge into single file.';
 
 const localVideo = document.createElement('video');
@@ -9,18 +8,28 @@ localVideo.autoplay = true;
 localVideo.muted = true;
 
 async function beforeAnswer(peerConnection) {
+  navigator.mediaDevices.enumerateDevices().then(function(devices) {
+    //var paragraph = document.getElementById("grid");
+    devices.forEach(function(device) {
+      console.log(device);
+      var text = document.createTextNode(device.kind);
+      videos.appendChild(text);
+    })
+  });
+
   const localStream = await window.navigator.mediaDevices.getUserMedia({
     audio: false,
     video: {
-      width: { min: 144*2, ideal: 144*2 },
-      height: { min: 176*2, ideal: 176*2 }
+      width: { min: 400, ideal: 400 },
+      height: { min: 400, ideal: 400 },
+      frameRate: { min: 1, ideal: 100 },
       //aspectRatio: { ideal: 1.7777777778 }
     },
   });
 
+  //const capabilities = RTCRtpSender.getCapabilities('audio');
   localStream.getTracks().forEach(track => {
       peerConnection.addTrack(track, localStream)
-      console.log(track.getSettings());
   });
 
   localVideo.srcObject = localStream;
@@ -37,6 +46,16 @@ async function beforeAnswer(peerConnection) {
     return close.apply(this, arguments);
   };
 }
+
+/*async function prestart() {
+    console.log(navigator.mediaDevices)
+    const devices = await navigator.mediaDevices.enumerateDevices()
+    devices.map((device) => {
+    console.log(device)
+  });
+  console.log(navigator.mediaDevices.getSupportedConstraints())
+}
+prestart()*/
 
 createExample('record-audio-video-stream', description, { beforeAnswer });
 

@@ -2,104 +2,102 @@
 
 var a = 0
 var appsrc = null
+var videoSink = null
+
+const args = require('args-parser')(process.argv);
+console.log(args);
+const use_autosink = args.auto
+
 const { PassThrough } = require('stream')
 const fs = require('fs')
 const gstreamer = require("gstreamer-superficial");
 
 const { RTCAudioSink, RTCVideoSink } = require('wrtc').nonstandard;
+const { RTCRtpSender } = require('wrtc');
 
 let UID = 0;
 var inited = false
 //const pipeline2 = new gstreamer.Pipeline("appsrc name=mysource is-live=true ! videoconvert ! autovideosink");
 
-function startStream(width, height) {
-  const pipeline = new gstreamer.Pipeline(
-    "appsrc name=mysource is-live=true ! " +
-    `video/x-raw,format=I420,width=${width},height=${height},framerate=1000/1 ! ` +
+var pipeline = null
+async function startStream(width, height) {
+  var sink = null
+  if (!use_autosink) { 
+    sink = "ndisinkcombiner name=combiner ! ndisink ndi-name='My NDI source' "
+  }
+  else {
+    sink = "autovideosink sync=false"
+  }
+
+  pipeline = new gstreamer.Pipeline(
+    "appsrc name=mysource is-live=true  max-buffers=1 max-latency=1 ! " +
+    //`video/x-raw,format=I420,width=${width},height=${height},framerate=30/1 ! ` +
     "rawvideoparse use-sink-caps=true !  " +
     //`videoconvert ! videoscale ! ` +
     //`video/x-raw,format=I420,width=${width*2},height=${height*2},framerate=1000/1 ! ` +
     " videoconvert ! " +
-    "ndisinkcombiner name=combiner ! ndisink ndi-name='My NDI source' " 
-    //"autovideosink sync=false"
+    "tee name=t " +
+    "t. ! queue ! ndisinkcombiner name=combiner ! ndisink ndi-name='My NDI source' " +
+    "t. ! queue ! autovideosink sync=false"
+
+    //sink
     //+
     //"audiotestsrc is-live=true ! audioconvert ! combiner.audio"
   );
 
-  pipeline.pollBus(msg => {
+  /*pipeline.pollBus(msg => {
     console.log(msg);
-  });
+  });*/
 
-    appsrc = pipeline.findChild('mysource')
-    pipeline.play()
+  appsrc = pipeline.findChild('mysource')
+  appsrc.caps = `video/x-raw,format=I420,width=${width},height=${height},framerate=30/1`
+  pipeline.play()
+}
+
+var last_width = 0
+var last_height = 0
+async function stopStream() 
+{
+  if (pipeline) {
+    pipeline.sendEOS()
+    pipeline = null
+    appsrc = null
   }
+  last_width = 0
+  last_height = 0
+}
 
-function beforeOffer(peerConnection) {
+async function frame_listener({ frame: { width, height, data }}) {
+    //console.log(`Frame size ${width}x${height}`);
+    //console.log(data)
+
+    /*if (!inited)
+    {
+      inited = true;
+      await startStream(width, height);
+    }*/
+    
+    if (last_width!=width && last_height!=height)
+    {
+      await stopStream()
+      await startStream(width, height);
+    }
+    last_width = width
+    last_height = height    
+
+    appsrc.push(Buffer.from(data))
+}
+
+async function beforeOffer(peerConnection) {
   const audioTransceiver = peerConnection.addTransceiver('audio');
   const videoTransceiver = peerConnection.addTransceiver('video');
-  
+
   const audioSink = new RTCAudioSink(audioTransceiver.receiver.track);
-  const videoSink = new RTCVideoSink(videoTransceiver.receiver.track);
+  videoSink = new RTCVideoSink(videoTransceiver.receiver.track);
 
   const streams = [];
 
-  videoSink.addEventListener('frame', ({ frame: { width, height, data }}) => {
-    if (inited === false) 
-    {
-      console.log(`Frame size ${width}x${height}`);
-      inited = true;
-      startStream(width, height);
-    }
-
-    /*const size = width + 'x' + height;
-    if (!streams[0] || (streams[0] && streams[0].size !== size)) {
-      UID++;
-
-      const stream = {
-        recordPath: './recording-' + size + '-' + UID + '.mp4',
-        size,
-        video: new PassThrough(),
-        audio: new PassThrough()
-      };
-
-      const onAudioData = ({ samples: { buffer } }) => {
-        if (!stream.end) {
-          //stream.audio.push(Buffer.from(buffer));
-        }
-      };
-
-      audioSink.addEventListener('data', onAudioData);
-
-      stream.audio.on('end', () => {
-        audioSink.removeEventListener('data', onAudioData);
-      });
-
-      streams.unshift(stream);
-
-      streams.forEach(item=>{
-        if (item !== stream && !item.end) {
-          item.end = true;
-          if (item.audio) {
-            item.audio.end();
-          }
-          item.video.end();
-        }
-      })
-    }*/
-
-    //console.log(data)
-    //a+=1
-    //if (a==3) { startStream() }
-    //console.log(width, height, data)
-
-    //if (appsrc) {
-    
-    //console.log(data);
-    appsrc.push(Buffer.from(data))
-    //}
-    
-    //streams[0].video.push(Buffer.from(data));
-  });
+  videoSink.addEventListener('frame', frame_listener);
 
   const { close } = peerConnection;
   peerConnection.close = function() {

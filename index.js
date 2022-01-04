@@ -50,7 +50,7 @@ const connectionManagers = examples.reduce((connectionManagers, example) => {
   return connectionManagers.set(example, connectionManager);
 }, new Map());
 
-httpsServer.listen(10020, () => {
+httpsServer.listen(443, () => {
   const address = httpsServer.address();
   console.log(`https://localhost:${address.port}\n`);
 

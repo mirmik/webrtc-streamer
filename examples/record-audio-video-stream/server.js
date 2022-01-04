@@ -22,13 +22,11 @@ var inited = false
 var pipeline = null
 async function startStream(width, height) {
   var sink = null
-  if (!use_autosink) { 
-    sink = "ndisinkcombiner name=combiner ! ndisink ndi-name='My NDI source' "
+	var strsink = "t. ! queue ! ndisinkcombiner name=combiner ! ndisink ndi-name='My NDI source' "
+  if (use_autosink) { 
+    strsink += "t. ! queue ! autovideosink sync=false"
   }
-  else {
-    sink = "autovideosink sync=false"
-  }
-
+  
   pipeline = new gstreamer.Pipeline(
     "appsrc name=mysource is-live=true  max-buffers=1 max-latency=1 ! " +
     //`video/x-raw,format=I420,width=${width},height=${height},framerate=30/1 ! ` +
@@ -37,17 +35,16 @@ async function startStream(width, height) {
     //`video/x-raw,format=I420,width=${width*2},height=${height*2},framerate=1000/1 ! ` +
     " videoconvert ! " +
     "tee name=t " +
-    "t. ! queue ! ndisinkcombiner name=combiner ! ndisink ndi-name='My NDI source' " +
-    "t. ! queue ! autovideosink sync=false"
-
+	strsink
+  
     //sink
     //+
     //"audiotestsrc is-live=true ! audioconvert ! combiner.audio"
   );
 
-  /*pipeline.pollBus(msg => {
+  pipeline.pollBus(msg => {
     console.log(msg);
-  });*/
+  });
 
   appsrc = pipeline.findChild('mysource')
   appsrc.caps = `video/x-raw,format=I420,width=${width},height=${height},framerate=30/1`
@@ -69,7 +66,7 @@ async function stopStream()
 
 async function frame_listener({ frame: { width, height, data }}) {
     //console.log(`Frame size ${width}x${height}`);
-    //console.log(data)
+    console.log(data)
 
     /*if (!inited)
     {

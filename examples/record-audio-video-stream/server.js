@@ -22,7 +22,7 @@ var inited = false
 var pipeline = null
 async function startStream(width, height) {
   var sink = null
-	var strsink = "t. ! queue ! ndisinkcombiner name=combiner ! ndisink ndi-name='My NDI source' "
+	var strsink = "t. ! ndisinkcombiner name=combiner ! ndisink ndi-name='My NDI source' "
   if (use_autosink) { 
     strsink += "t. ! queue ! autovideosink sync=false"
   }
@@ -47,7 +47,7 @@ async function startStream(width, height) {
   });
 
   appsrc = pipeline.findChild('mysource')
-  appsrc.caps = `video/x-raw,format=I420,width=${width},height=${height},framerate=30/1`
+  appsrc.caps = `video/x-raw,format=I420,width=${width},height=${height},framerate=60/1`
   pipeline.play()
 }
 

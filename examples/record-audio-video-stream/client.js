@@ -20,9 +20,9 @@ async function beforeAnswer(peerConnection) {
   const localStream = await window.navigator.mediaDevices.getUserMedia({
     audio: false,
     video: {
-      width: { min: 400, ideal: 400 },
-      height: { min: 400, ideal: 400 },
-      frameRate: { min: 1, ideal: 100 },
+//      width: { min: 200, ideal: 200 },
+//      height: { min: 200, ideal: 200 },
+      //frameRate: { min: 1, ideal: 100 },
       //aspectRatio: { ideal: 1.7777777778 }
     },
   });
